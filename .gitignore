@@ -1,0 +1,36 @@
+# xmake
+.xmake/
+build/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+
+# Compiled files
+*.exe
+*.dll
+*.obj
+*.o
+*.so
+*.a
+
+# Qt
+*.autosave
+*.pro.user
+*.qm
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# Visual Studio
+.vs/
+*.user
+*.ncb
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
