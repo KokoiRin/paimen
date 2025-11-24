@@ -5,7 +5,16 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QMouseEvent>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QDialog>
+#include <QDir>
 #include "PomodoroTimer.h"
 
 class MiniWindow : public QWidget {
@@ -29,10 +38,12 @@ private slots:
     void onStartPauseClicked();
     void onResetClicked();
     void onExpandClicked();
+    void onRecordClicked();  // 新增记录按钮槽函数
 
 private:
     void setupUI();
     void applyStyles();
+    void saveToExcel(const QString &time, const QString &content);  // 保存到Excel
 
     PomodoroTimer *m_timer;
     
@@ -40,6 +51,7 @@ private:
     QLabel *m_statusIndicator;
     QPushButton *m_startPauseButton;
     QPushButton *m_resetButton;
+    QPushButton *m_recordButton;  // 新增记录按钮
     QPushButton *m_expandButton;
     
     QPoint m_dragPosition;
