@@ -35,15 +35,15 @@ void MenuStyle::drawControl(ControlElement element, const QStyleOption *option,
             path.addRoundedRect(itemRect, 6, 6);
             
             if (option->state & State_Selected) {
-                // 悬停状态 - 使用暖色调
-                painter->fillPath(path, QColor(255, 152, 0, 180));  // 橙色高亮
+                // 悬停状态 - 使用深紫色调
+                painter->fillPath(path, QColor(138, 43, 226, 100));  // 深紫色高亮
                 
                 // 边框
-                painter->setPen(QPen(QColor(255, 193, 7, 200), 1.5));
+                painter->setPen(QPen(QColor(186, 85, 211, 150), 1.5));  // 中紫色边框
                 painter->drawPath(path);
             } else if (option->state & State_Sunken) {
                 // 按下状态
-                painter->fillPath(path, QColor(255, 152, 0, 220));
+                painter->fillPath(path, QColor(138, 43, 226, 150));
             } else {
                 // 正常状态 - 透明
                 painter->fillPath(path, Qt::transparent);
@@ -133,6 +133,7 @@ void StyledMenu::setupStyle() {
     // 设置窗口标志
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_StyledBackground, true);  // 确保背景被绘制
     
     // 应用自定义样式
     m_menuStyle = new MenuStyle();
@@ -151,11 +152,14 @@ void StyledMenu::paintEvent(QPaintEvent *event) {
     QPainterPath path;
     path.addRoundedRect(menuRect, 10, 10);
     
-    // 单色背景 - 深蓝灰色
-    painter.fillPath(path, QColor(55, 71, 79, 245));  // rgba(55, 71, 79, 0.96)
+    // 紫蓝渐变背景 - 与记录窗口一致
+    QLinearGradient gradient(0, 0, menuRect.width(), menuRect.height());
+    gradient.setColorAt(0, QColor(0x66, 0x7e, 0xea));   // #667eea
+    gradient.setColorAt(1, QColor(0x76, 0x4b, 0xa2));   // #764ba2
+    painter.fillPath(path, gradient);
     
     // 绘制边框
-    painter.setPen(QPen(QColor(96, 125, 139, 200), 2));  // 淡蓝灰色边框
+    painter.setPen(QPen(QColor(255, 255, 255, 100), 2));  // 半透明白色边框
     painter.drawPath(path);
     
     // 添加微妙的内阴影，增加深度

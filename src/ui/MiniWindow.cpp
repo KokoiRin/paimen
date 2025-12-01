@@ -6,6 +6,8 @@ MiniWindow::MiniWindow(QWidget *parent)
     : QWidget(parent)
     , m_timer(new Timer(this))
     , m_dragging(false)
+    , m_isIntervalMode(false)
+    , m_taskTitle(QString::fromUtf8("\xe5\xbd\x93\xe5\x89\x8d\xe4\xbb\xbb\xe5\x8a\xa1"))  // 当前任务
 {
     setupUI();
     applyStyles();
@@ -20,13 +22,18 @@ MiniWindow::MiniWindow(QWidget *parent)
     connect(m_timer, &Timer::stateChanged, this, &MiniWindow::onStateChanged);
     // Timer::completed 信号已在onStateChanged中处理
     
+    // 初始化间隔计时器
+    m_intervalTimer = new QTimer(this);
+    m_intervalTimer->setInterval(1000);  // 1秒更新一次
+    connect(m_intervalTimer, &QTimer::timeout, this, &MiniWindow::updateIntervalTime);
+    
     // 初始化显示
     onTimeChanged(m_timer->remainingSeconds());
     onStateChanged(m_timer->state());
 }
 
 void MiniWindow::setupUI() {
-    setFixedSize(320, 120);  // 增大窗口确保显示完整
+    setFixedSize(320, 150);  // 增加高度以容纳任务标题
     
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(6);
@@ -54,6 +61,20 @@ void MiniWindow::setupUI() {
     topLayout->addWidget(m_statusIndicator);
     topLayout->addWidget(m_timeLabel, 1);  // 添加拉伸因子
     topLayout->addStretch();
+    
+    // 中间：任务标题栏（默认隐藏）
+    m_taskTitleLabel = new QLabel(m_taskTitle);
+    m_taskTitleLabel->setObjectName("taskTitleLabel");
+    m_taskTitleLabel->setAlignment(Qt::AlignCenter);
+    m_taskTitleLabel->setMaximumWidth(186);  // 4个按钮(168px) + 3个间隔(18px) = 186px
+    m_taskTitleLabel->setMinimumHeight(30);  // 设置最小高度
+    m_taskTitleLabel->setVisible(false);  // 默认隐藏
+    m_taskTitleLabel->setCursor(Qt::PointingHandCursor);
+    m_taskTitleLabel->installEventFilter(this);  // 安装事件过滤器以处理点击
+    QFont titleFont = m_taskTitleLabel->font();
+    titleFont.setPointSize(10);  // 加大字号
+    titleFont.setBold(true);
+    m_taskTitleLabel->setFont(titleFont);
     
     // 底部：控制按钮
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -86,11 +107,15 @@ void MiniWindow::setupUI() {
     buttonLayout->addStretch();  // 拉伸放在最后
     
     mainLayout->addLayout(topLayout);
+    mainLayout->addWidget(m_taskTitleLabel);  // 添加任务标题
     mainLayout->addLayout(buttonLayout);
     
     // 创建自定义菜单
     m_moreMenu = new StyledMenu(this);
     m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x9c\x8f"), QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95\xe6\x97\xb6\xe9\x97\xb4"));  // ✏ 记录时间
+    m_moreMenu->addSeparator();
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x8f\xb1"), QString::fromUtf8("\xe9\x97\xb4\xe9\x9a\x94\xe6\xa8\xa1\xe5\xbc\x8f"));  // ⏱ 间隔模式
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xf0\x9f\x8d\x85"), QString::fromUtf8("\xe7\x95\xaa\xe8\x8c\x84\xe9\x92\x9f\xe6\xa8\xa1\xe5\xbc\x8f"));  // 🍅 番茄钟模式
     m_moreMenu->addSeparator();
     m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x9c\xa8"), QString::fromUtf8("\xe5\xbf\xab\xe9\x80\x9f\xe7\xac\x94\xe8\xae\xb0"));  // ✨ 快速笔记
     m_moreMenu->addStyledAction(QString::fromUtf8("\xf0\x9f\x93\x8a"), QString::fromUtf8("\xe6\x9f\xa5\xe7\x9c\x8b\xe7\xbb\x9f\xe8\xae\xa1"));  // 📊 查看统计
@@ -105,6 +130,8 @@ void MiniWindow::setupUI() {
     
     // 连接菜单动作
     connect(m_moreMenu->actions()[0], &QAction::triggered, this, &MiniWindow::onRecordClicked);
+    connect(m_moreMenu->actions()[2], &QAction::triggered, this, &MiniWindow::onSwitchToIntervalMode);
+    connect(m_moreMenu->actions()[3], &QAction::triggered, this, &MiniWindow::onSwitchToPomodoroMode);
 }
 
 void MiniWindow::applyStyles() {
@@ -175,6 +202,15 @@ void MiniWindow::applyStyles() {
         
         #expandButton:hover {
             background-color: rgba(255, 152, 0, 0.9);
+        }
+        
+        #taskTitleLabel {
+            color: #FFFFFF;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                       stop:0 #667eea, stop:1 #764ba2);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-weight: bold;
         }
     )");
 }
@@ -379,8 +415,109 @@ void MiniWindow::onRecordClicked() {
         if (!text.isEmpty()) {
             // 使用RecordManager保存记录
             RecordManager::instance().saveRecord(text);
+            
+            // 如果处于间隔模式，更新最后记录时间
+            if (m_isIntervalMode) {
+                m_lastRecordTime = QDateTime::currentDateTime();
+            }
         }
     }
     
     dialog->deleteLater();
+}
+
+void MiniWindow::onSwitchToIntervalMode() {
+    switchMode(true);
+}
+
+void MiniWindow::onSwitchToPomodoroMode() {
+    switchMode(false);
+}
+
+void MiniWindow::switchMode(bool isIntervalMode) {
+    m_isIntervalMode = isIntervalMode;
+    
+    if (m_isIntervalMode) {
+        // 切换到间隔模式
+        m_timer->reset();
+        m_lastRecordTime = QDateTime::currentDateTime();
+        m_intervalTimer->start();
+        
+        // 显示任务标题
+        m_taskTitleLabel->setVisible(true);
+        m_taskTitleLabel->setText(m_taskTitle);
+        
+        // 隐藏状态指示器（间隔模式不需要）
+        m_statusIndicator->setVisible(false);
+        
+        // 禁用开始/暂停/重置按钮
+        m_startPauseButton->setEnabled(false);
+        m_resetButton->setEnabled(false);
+        
+        updateIntervalTime();
+    } else {
+        // 切换回番茄钟模式
+        m_intervalTimer->stop();
+        
+        // 隐藏任务标题
+        m_taskTitleLabel->setVisible(false);
+        
+        // 显示状态指示器
+        m_statusIndicator->setVisible(true);
+        
+        // 启用按钮
+        m_startPauseButton->setEnabled(true);
+        m_resetButton->setEnabled(true);
+        
+        // 恢复番茄钟显示
+        onTimeChanged(m_timer->remainingSeconds());
+        onStateChanged(m_timer->state());
+    }
+}
+
+void MiniWindow::updateIntervalTime() {
+    if (!m_isIntervalMode) return;
+    
+    qint64 seconds = m_lastRecordTime.secsTo(QDateTime::currentDateTime());
+    
+    int hours = seconds / 3600;
+    int minutes = (seconds % 3600) / 60;
+    int secs = seconds % 60;
+    
+    QString timeText;
+    if (hours > 0) {
+        timeText = QString("%1:%2:%3")
+            .arg(hours, 2, 10, QChar('0'))
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(secs, 2, 10, QChar('0'));
+    } else {
+        timeText = QString("%1:%2")
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(secs, 2, 10, QChar('0'));
+    }
+    
+    m_timeLabel->setText(timeText);
+}
+
+void MiniWindow::onEditTaskTitle() {
+    bool ok;
+    QString newTitle = QInputDialog::getText(this,
+        QString::fromUtf8("\xe7\xbc\x96\xe8\xbe\x91\xe4\xbb\xbb\xe5\x8a\xa1\xe6\xa0\x87\xe9\xa2\x98"),  // 编辑任务标题
+        QString::fromUtf8("\xe8\xaf\xb7\xe8\xbe\x93\xe5\x85\xa5\xe4\xbb\xbb\xe5\x8a\xa1\xe6\xa0\x87\xe9\xa2\x98\xef\xbc\x9a"),  // 请输入任务标题：
+        QLineEdit::Normal,
+        m_taskTitle,
+        &ok);
+    
+    if (ok && !newTitle.trimmed().isEmpty()) {
+        m_taskTitle = newTitle.trimmed();
+        m_taskTitleLabel->setText(m_taskTitle);
+    }
+}
+
+bool MiniWindow::eventFilter(QObject *obj, QEvent *event) {
+    if (obj == m_taskTitleLabel && event->type() == QEvent::MouseButtonPress) {
+        onEditTaskTitle();
+        return true;
+    }
+    return QWidget::eventFilter(obj, event);
 }
