@@ -10,10 +10,20 @@ target("pomodoro")
     
     -- 添加源文件
     add_files("src/*.cpp")
+    add_files("src/core/*.cpp")
+    add_files("src/services/*.cpp")
+    add_files("src/ui/*.cpp")
+    
     add_files("src/*.h")
+    add_files("src/core/*.h")
+    add_files("src/services/*.h")
+    add_files("src/ui/*.h")
     
     -- 添加头文件路径
     add_includedirs("src")
+    add_includedirs("src/core")
+    add_includedirs("src/services")
+    add_includedirs("src/ui")
     
     -- 添加Qt模块
     add_frameworks("QtWidgets", "QtGui", "QtCore")

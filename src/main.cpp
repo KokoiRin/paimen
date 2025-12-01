@@ -1,10 +1,22 @@
 #include <QApplication>
 #include <QScreen>
-#include "MainWindow.h"
-#include "MiniWindow.h"
+#include "ui/MainWindow.h"
+#include "ui/MiniWindow.h"
+#include "core/AppConfig.h"
+#include "services/RecordService.h"
+#include <memory>
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+    
+    // 初始化应用配置
+    AppConfig::instance().load();
+    
+    // 初始化记录服务
+    auto recordService = std::make_unique<CsvRecordService>(
+        AppConfig::instance().recordDirectory()
+    );
+    RecordManager::instance().setService(std::move(recordService));
     
     MainWindow *mainWindow = new MainWindow();
     MiniWindow *miniWindow = new MiniWindow();

@@ -1,0 +1,59 @@
+#include "ITimerStrategy.h"
+
+// PomodoroStrategy 实现
+PomodoroStrategy::PomodoroStrategy(int minutes) : m_minutes(minutes) {}
+
+int PomodoroStrategy::duration() const {
+    return m_minutes * 60;
+}
+
+QString PomodoroStrategy::name() const {
+    return QString::fromUtf8("\xe7\x95\xaa\xe8\x8c\x84\xe9\x92\x9f");  // 番茄钟
+}
+
+QString PomodoroStrategy::completionMessage() const {
+    return QString::fromUtf8(
+        "\xe6\x81\xad\xe5\x96\x9c\xe4\xbd\xa0\xef\xbc\x81\xe5\xae\x8c\xe6\x88\x90\xe4\xba\x86"
+        "\x32\x35\xe5\x88\x86\xe9\x92\x9f\xe7\x9a\x84\xe5\x86\x92\xe9\x99\xa9\xef\xbc\x81\n\n"
+        "\xe6\xb4\xbe\xe8\x92\x99\xe8\xa7\x89\xe5\xbe\x97\xe4\xbd\xa0\xe5\xba\x94\xe8\xaf\xa5"
+        "\xe4\xbc\x91\xe6\x81\xaf\xe4\xb8\x80\xe4\xb8\x8b\xe5\x95\xa6\xef\xbc\x81\xe2\x9c\xa8"
+    );  // 恭喜你！完成了25分钟的冒险！派蒙觉得你应该休息一下啦！✨
+}
+
+// ShortBreakStrategy 实现
+ShortBreakStrategy::ShortBreakStrategy(int minutes) : m_minutes(minutes) {}
+
+int ShortBreakStrategy::duration() const {
+    return m_minutes * 60;
+}
+
+QString ShortBreakStrategy::name() const {
+    return QString::fromUtf8("\xe7\x9f\xad\xe4\xbc\x91\xe6\x81\xaf");  // 短休息
+}
+
+QString ShortBreakStrategy::completionMessage() const {
+    return QString::fromUtf8(
+        "\xe4\xbc\x91\xe6\x81\xaf\xe6\x97\xb6\xe9\x97\xb4\xe5\x88\xb0\xef\xbc\x81\n\n"
+        "\xe6\xb4\xbe\xe8\x92\x99\xe8\xa7\x89\xe5\xbe\x97\xe4\xbd\xa0\xe5\x8f\xaf\xe4\xbb\xa5"
+        "\xe7\xbb\xa7\xe7\xbb\xad\xe5\x86\x92\xe9\x99\xa9\xe4\xba\x86\xef\xbc\x81"
+    );  // 休息时间到！派蒙觉得你可以继续冒险了！
+}
+
+// LongBreakStrategy 实现
+LongBreakStrategy::LongBreakStrategy(int minutes) : m_minutes(minutes) {}
+
+int LongBreakStrategy::duration() const {
+    return m_minutes * 60;
+}
+
+QString LongBreakStrategy::name() const {
+    return QString::fromUtf8("\xe9\x95\xbf\xe4\xbc\x91\xe6\x81\xaf");  // 长休息
+}
+
+QString LongBreakStrategy::completionMessage() const {
+    return QString::fromUtf8(
+        "\xe9\x95\xbf\xe4\xbc\x91\xe6\x81\xaf\xe5\xae\x8c\xe6\x88\x90\xef\xbc\x81\n\n"
+        "\xe6\xb4\xbe\xe8\x92\x99\xe8\xa7\x89\xe5\xbe\x97\xe4\xbd\xa0\xe5\xb7\xb2\xe7\xbb\x8f"
+        "\xe6\x81\xa2\xe5\xa4\x8d\xe4\xba\x86\xe7\xb2\xbe\xe5\x8a\x9b\xef\xbc\x81"
+    );  // 长休息完成！派蒙觉得你已经恢复了精力！
+}

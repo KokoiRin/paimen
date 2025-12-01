@@ -15,7 +15,8 @@
 #include <QTextEdit>
 #include <QDialog>
 #include <QDir>
-#include "PomodoroTimer.h"
+#include "Timer.h"
+#include "StyledMenu.h"
 
 class MiniWindow : public QWidget {
     Q_OBJECT
@@ -33,26 +34,26 @@ protected:
 
 private slots:
     void onTimeChanged(int remainingSeconds);
-    void onStateChanged(PomodoroTimer::State state);
-    void onPomodoroCompleted();
+    void onStateChanged(Timer::State state);
     void onStartPauseClicked();
     void onResetClicked();
     void onExpandClicked();
-    void onRecordClicked();  // 新增记录按钮槽函数
+    void onMoreButtonClicked();  // 更多按钮点击
+    void onRecordClicked();      // 记录时间  // 新增记录按钮槽函数
 
 private:
     void setupUI();
     void applyStyles();
-    void saveToExcel(const QString &time, const QString &content);  // 保存到Excel
 
-    PomodoroTimer *m_timer;
+    Timer *m_timer;
     
     QLabel *m_timeLabel;
     QLabel *m_statusIndicator;
     QPushButton *m_startPauseButton;
     QPushButton *m_resetButton;
-    QPushButton *m_recordButton;  // 新增记录按钮
+    QPushButton *m_moreButton;    // 更多菜单按钮
     QPushButton *m_expandButton;
+    StyledMenu *m_moreMenu;       // 自定义下拉菜单
     
     QPoint m_dragPosition;
     bool m_dragging;

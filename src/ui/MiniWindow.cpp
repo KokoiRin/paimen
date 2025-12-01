@@ -1,11 +1,10 @@
 #include "MiniWindow.h"
-#include <QHBoxLayout>
-#include <QFont>
-#include <QApplication>
+#include "RecordService.h"
+#include <QMouseEvent>
 
 MiniWindow::MiniWindow(QWidget *parent)
     : QWidget(parent)
-    , m_timer(new PomodoroTimer(this))
+    , m_timer(new Timer(this))
     , m_dragging(false)
 {
     setupUI();
@@ -17,9 +16,9 @@ MiniWindow::MiniWindow(QWidget *parent)
     // 启用硬件加速提升性能
     setAttribute(Qt::WA_NativeWindow);
     
-    connect(m_timer, &PomodoroTimer::timeChanged, this, &MiniWindow::onTimeChanged);
-    connect(m_timer, &PomodoroTimer::stateChanged, this, &MiniWindow::onStateChanged);
-    connect(m_timer, &PomodoroTimer::pomodoroCompleted, this, &MiniWindow::onPomodoroCompleted);
+    connect(m_timer, &Timer::timeChanged, this, &MiniWindow::onTimeChanged);
+    connect(m_timer, &Timer::stateChanged, this, &MiniWindow::onStateChanged);
+    // Timer::completed 信号已在onStateChanged中处理
     
     // 初始化显示
     onTimeChanged(m_timer->remainingSeconds());
@@ -62,38 +61,50 @@ void MiniWindow::setupUI() {
     
     m_startPauseButton = new QPushButton(QString::fromUtf8("\xe2\x96\xb6"));
     m_resetButton = new QPushButton(QString::fromUtf8("\xe2\x86\xbb"));
-    m_recordButton = new QPushButton(QString::fromUtf8("\xe2\x9c\x8f"));  // 笔记符号
+    m_moreButton = new QPushButton(QString::fromUtf8("\xe2\x8b\xae"));  // ⋮ 更多菜单符号
     m_expandButton = new QPushButton(QString::fromUtf8("\xe2\xac\x9c"));
     
     m_startPauseButton->setObjectName("controlButton");
     m_resetButton->setObjectName("controlButton");
-    m_recordButton->setObjectName("recordButton");
+    m_moreButton->setObjectName("moreButton");
     m_expandButton->setObjectName("expandButton");
     
-    m_startPauseButton->setFixedSize(42, 35);  // 稍微缩小以容纳4个按钮
+    m_startPauseButton->setFixedSize(42, 35);
     m_resetButton->setFixedSize(42, 35);
-    m_recordButton->setFixedSize(42, 35);
+    m_moreButton->setFixedSize(42, 35);
     m_expandButton->setFixedSize(42, 35);
     
-    m_startPauseButton->setToolTip(QString::fromUtf8("\xe5\xbc\x80\xe5\xa7\x8b/\xe6\x9a\x82\xe5\x81\x9c"));
+    m_startPauseButton->setToolTip(QString::fromUtf8("\xe5\xbc\x00\xe5\xa7\x8b/\xe6\x9a\x82\xe5\x81\x9c"));
     m_resetButton->setToolTip(QString::fromUtf8("\xe9\x87\x8d\xe7\xbd\xae"));
-    m_recordButton->setToolTip(QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95\xe5\xbd\x93\xe5\x89\x8d\xe6\x97\xb6\xe9\x97\xb4"));
-    m_expandButton->setToolTip(QString::fromUtf8("\xe5\xb1\x95\xe5\xbc\x80\xe7\xaa\x97\xe5\x8f\xa3"));
+    m_moreButton->setToolTip(QString::fromUtf8("\xe6\x9b\xb4\xe5\xa4\x9a\xe5\x8a\x9f\xe8\x83\xbd"));  // 更多功能
+    m_expandButton->setToolTip(QString::fromUtf8("\xe5\xb1\x95\xe5\xbc\x00\xe7\xaa\x97\xe5\x8f\xa3"));
     
     buttonLayout->addWidget(m_startPauseButton);
     buttonLayout->addWidget(m_resetButton);
-    buttonLayout->addWidget(m_recordButton);  // 添加记录按钮在重置和展开之间
+    buttonLayout->addWidget(m_moreButton);  // 添加更多按钮
     buttonLayout->addWidget(m_expandButton);
     buttonLayout->addStretch();  // 拉伸放在最后
     
     mainLayout->addLayout(topLayout);
     mainLayout->addLayout(buttonLayout);
     
+    // 创建自定义菜单
+    m_moreMenu = new StyledMenu(this);
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x9c\x8f"), QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95\xe6\x97\xb6\xe9\x97\xb4"));  // ✏ 记录时间
+    m_moreMenu->addSeparator();
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x9c\xa8"), QString::fromUtf8("\xe5\xbf\xab\xe9\x80\x9f\xe7\xac\x94\xe8\xae\xb0"));  // ✨ 快速笔记
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xf0\x9f\x93\x8a"), QString::fromUtf8("\xe6\x9f\xa5\xe7\x9c\x8b\xe7\xbb\x9f\xe8\xae\xa1"));  // 📊 查看统计
+    m_moreMenu->addSeparator();
+    m_moreMenu->addStyledAction(QString::fromUtf8("\xe2\x9a\x99"), QString::fromUtf8("\xe8\xae\xbe\xe7\xbd\xae"));  // ⚙ 设置
+    
     // 连接信号
     connect(m_startPauseButton, &QPushButton::clicked, this, &MiniWindow::onStartPauseClicked);
     connect(m_resetButton, &QPushButton::clicked, this, &MiniWindow::onResetClicked);
-    connect(m_recordButton, &QPushButton::clicked, this, &MiniWindow::onRecordClicked);
+    connect(m_moreButton, &QPushButton::clicked, this, &MiniWindow::onMoreButtonClicked);
     connect(m_expandButton, &QPushButton::clicked, this, &MiniWindow::onExpandClicked);
+    
+    // 连接菜单动作
+    connect(m_moreMenu->actions()[0], &QAction::triggered, this, &MiniWindow::onRecordClicked);
 }
 
 void MiniWindow::applyStyles() {
@@ -148,13 +159,13 @@ void MiniWindow::applyStyles() {
             background-color: rgba(76, 175, 80, 0.9);
         }
         
-        #recordButton {
-            font-size: 16px;
-            background-color: rgba(33, 150, 243, 0.7);
+        #moreButton {
+            font-size: 20px;
+            background-color: rgba(156, 39, 176, 0.7);
         }
         
-        #recordButton:hover {
-            background-color: rgba(33, 150, 243, 0.9);
+        #moreButton:hover {
+            background-color: rgba(156, 39, 176, 0.9);
         }
         
         #expandButton {
@@ -191,19 +202,19 @@ void MiniWindow::onTimeChanged(int remainingSeconds) {
         .arg(seconds, 2, 10, QChar('0')));
 }
 
-void MiniWindow::onStateChanged(PomodoroTimer::State state) {
+void MiniWindow::onStateChanged(Timer::State state) {
     switch (state) {
-    case PomodoroTimer::Idle:
+    case Timer::Idle:
         m_statusIndicator->setStyleSheet("color: #BDBDBD; text-shadow: 0 0 10px #FFFFFF;");
         m_startPauseButton->setText(QString::fromUtf8("\xe2\x96\xb6"));
         m_startPauseButton->setToolTip(QString::fromUtf8("\xe5\xbc\x80\xe5\xa7\x8b"));
         break;
-    case PomodoroTimer::Running:
+    case Timer::Running:
         m_statusIndicator->setStyleSheet("color: #00E676; text-shadow: 0 0 20px #00E676;");
         m_startPauseButton->setText(QString::fromUtf8("\xe2\x8f\xb8"));
         m_startPauseButton->setToolTip(QString::fromUtf8("\xe6\x9a\x82\xe5\x81\x9c"));
         break;
-    case PomodoroTimer::Paused:
+    case Timer::Paused:
         m_statusIndicator->setStyleSheet("color: #FFD600; text-shadow: 0 0 20px #FFD600;");
         m_startPauseButton->setText(QString::fromUtf8("\xe2\x96\xb6"));
         m_startPauseButton->setToolTip(QString::fromUtf8("\xe7\xbb\xa7\xe7\xbb\xad"));
@@ -211,16 +222,15 @@ void MiniWindow::onStateChanged(PomodoroTimer::State state) {
     }
 }
 
-void MiniWindow::onPomodoroCompleted() {
-    // 闪烁效果提示完成
-    m_statusIndicator->setStyleSheet("color: #FF1744; text-shadow: 0 0 25px #FF1744, 0 0 35px #FF1744;");
-}
-
 void MiniWindow::onStartPauseClicked() {
-    if (m_timer->state() == PomodoroTimer::Running) {
+    if (m_timer->state() == Timer::Running) {
         m_timer->pause();
     } else {
-        m_timer->start();
+        if (m_timer->state() == Timer::Idle) {
+            m_timer->start();
+        } else {
+            m_timer->resume();
+        }
     }
 }
 
@@ -230,6 +240,12 @@ void MiniWindow::onResetClicked() {
 
 void MiniWindow::onExpandClicked() {
     emit switchToNormalMode();
+}
+
+void MiniWindow::onMoreButtonClicked() {
+    // 在按钮下方显示菜单
+    QPoint pos = m_moreButton->mapToGlobal(QPoint(0, m_moreButton->height()));
+    m_moreMenu->exec(pos);
 }
 
 void MiniWindow::onRecordClicked() {
@@ -361,43 +377,10 @@ void MiniWindow::onRecordClicked() {
     if (dialog->exec() == QDialog::Accepted) {
         QString text = lineEdit->text().trimmed();
         if (!text.isEmpty()) {
-            saveToExcel(currentTime, text);
+            // 使用RecordManager保存记录
+            RecordManager::instance().saveRecord(text);
         }
     }
     
     dialog->deleteLater();
-}
-
-void MiniWindow::saveToExcel(const QString &time, const QString &content) {
-    // 获取当前日期作为文件名
-    QString dateStr = QDateTime::currentDateTime().toString("yyyy-MM-dd");
-    QString fileName = dateStr + ".csv";  // 使用CSV格式，Excel可以直接打开
-    
-    // 确保在可执行文件同目录下
-    QString filePath = QDir::currentPath() + "/" + fileName;
-    
-    bool fileExists = QFile::exists(filePath);
-    QFile file(filePath);
-    
-    if (file.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&file);
-        out.setEncoding(QStringConverter::Utf8);  // Qt6使用setEncoding
-        
-        // 如果是新文件，写入表头
-        if (!fileExists) {
-            out << QString::fromUtf8("\xef\xbb\xbf");  // UTF-8 BOM，让Excel正确识别编码
-            out << QString::fromUtf8("\xe6\x97\xb6\xe9\x97\xb4") << ","
-                << QString::fromUtf8("\xe8\xae\xb0\xe5\xbd\x95\xe5\x86\x85\xe5\xae\xb9") << "\n";
-        }
-        
-        // 写入数据，处理逗号和换行符
-        QString escapedContent = content;
-        if (escapedContent.contains(",") || escapedContent.contains("\"") || escapedContent.contains("\n")) {
-            escapedContent.replace("\"", "\"\"");  // 转义引号
-            escapedContent = "\"" + escapedContent + "\"";  // 用引号包裹
-        }
-        
-        out << time << "," << escapedContent << "\n";
-        file.close();
-    }
 }
